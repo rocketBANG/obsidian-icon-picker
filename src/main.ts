@@ -1,99 +1,156 @@
-import {App, Editor, MarkdownView, Modal, Notice, Plugin} from 'obsidian';
-import {DEFAULT_SETTINGS, MyPluginSettings, SampleSettingTab} from "./settings";
+import { MarkdownView, Plugin, TFile } from "obsidian";
+import { DEFAULT_SETTINGS, MyPluginSettings, SampleSettingTab } from "./settings";
+import { iconDecoratorPlugin } from "./iconDecorator";
 
-// Remember to rename these classes and interfaces!
+const ICON_MAP: Record<string, string> = {
+	smile: "😊",
+	frown: "😞",
+};
 
 export default class MyPlugin extends Plugin {
 	settings: MyPluginSettings;
+	private observer: MutationObserver | null = null;
 
 	async onload() {
 		await this.loadSettings();
 
-		// This creates an icon in the left ribbon.
-		this.addRibbonIcon('dice', 'Sample', (evt: MouseEvent) => {
-			// Called when the user clicks the icon.
-			new Notice('This is a notice!');
-		});
+		// Register the icon decorator editor extension (for Source mode)
+		this.registerEditorExtension(iconDecoratorPlugin);
 
-		// This adds a status bar item to the bottom of the app. Does not work on mobile apps.
-		const statusBarItemEl = this.addStatusBarItem();
-		statusBarItemEl.setText('Status bar text');
-
-		// This adds a simple command that can be triggered anywhere
-		this.addCommand({
-			id: 'open-modal-simple',
-			name: 'Open modal (simple)',
-			callback: () => {
-				new SampleModal(this.app).open();
-			}
-		});
-		// This adds an editor command that can perform some operation on the current editor instance
-		this.addCommand({
-			id: 'replace-selected',
-			name: 'Replace selected content',
-			editorCallback: (editor: Editor, view: MarkdownView) => {
-				editor.replaceSelection('Sample editor command');
-			}
-		});
-		// This adds a complex command that can check whether the current state of the app allows execution of the command
-		this.addCommand({
-			id: 'open-modal-complex',
-			name: 'Open modal (complex)',
-			checkCallback: (checking: boolean) => {
-				// Conditions to check
-				const markdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
-				if (markdownView) {
-					// If checking is true, we're simply "checking" if the command can be run.
-					// If checking is false, then we want to actually perform the operation.
-					if (!checking) {
-						new SampleModal(this.app).open();
-					}
-
-					// This command will only show up in Command Palette when the check function returns true
-					return true;
+		// Handle Live Preview mode with Properties panel
+		this.registerEvent(
+			this.app.metadataCache.on("changed", (file) => {
+				const activeFile = this.app.workspace.getActiveFile();
+				if (activeFile && file.path === activeFile.path) {
+					this.decoratePropertiesPanel();
 				}
-				return false;
-			}
-		});
+			})
+		);
+
+		this.registerEvent(
+			this.app.workspace.on("active-leaf-change", () => {
+				this.decoratePropertiesPanel();
+			})
+		);
+
+		this.registerEvent(
+			this.app.workspace.on("layout-change", () => {
+				this.decoratePropertiesPanel();
+			})
+		);
+
+		// Use MutationObserver to catch when properties panel is rendered
+		this.setupMutationObserver();
 
 		// This adds a settings tab so the user can configure various aspects of the plugin
 		this.addSettingTab(new SampleSettingTab(this.app, this));
-
-		// If the plugin hooks up any global DOM events (on parts of the app that doesn't belong to this plugin)
-		// Using this function will automatically remove the event listener when this plugin is disabled.
-		this.registerDomEvent(document, 'click', (evt: MouseEvent) => {
-			new Notice("Click");
-		});
-
-		// When registering intervals, this function will automatically clear the interval when the plugin is disabled.
-		this.registerInterval(window.setInterval(() => console.log('setInterval'), 5 * 60 * 1000));
-
 	}
 
 	onunload() {
+		if (this.observer) {
+			this.observer.disconnect();
+			this.observer = null;
+		}
+		// Clean up any added decorations
+		document.querySelectorAll(".icon-decorator-property-emoji").forEach((el) => el.remove());
+	}
+
+	private setupMutationObserver() {
+		this.observer = new MutationObserver(() => {
+			this.decoratePropertiesPanel();
+		});
+
+		// Observe the workspace for changes to catch properties panel rendering
+		const workspace = document.querySelector(".workspace");
+		if (workspace) {
+			this.observer.observe(workspace, {
+				childList: true,
+				subtree: true,
+			});
+		}
+	}
+
+	private decoratePropertiesPanel() {
+		console.log("decoratePropertiesPanel called");
+
+		const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
+		if (!activeView) {
+			console.log("No active MarkdownView");
+			return;
+		}
+
+		const file = activeView.file;
+		if (!file) {
+			console.log("No file in view");
+			return;
+		}
+
+		const cache = this.app.metadataCache.getFileCache(file);
+		console.log("Cache:", cache);
+		console.log("Frontmatter:", cache?.frontmatter);
+
+		const iconValue = cache?.frontmatter?.icon;
+
+		if (!iconValue || typeof iconValue !== "string") {
+			console.log("No icon value found, iconValue:", iconValue);
+			return;
+		}
+
+		const emoji = ICON_MAP[iconValue.toLowerCase()];
+		if (!emoji) {
+			console.log("No emoji for icon:", iconValue);
+			return;
+		}
+
+		console.log("Looking for properties panel, emoji:", emoji);
+
+		// Find the properties panel in this view
+		const container = activeView.containerEl;
+		const properties = container.querySelectorAll(".metadata-property");
+		console.log("Found properties:", properties.length);
+
+		// Debug: log all elements with "metadata" in class name
+		const allMetadata = container.querySelectorAll("[class*='metadata']");
+		console.log("All metadata elements:", allMetadata.length);
+		allMetadata.forEach((el) => console.log("  -", el.className));
+
+		for (const prop of Array.from(properties)) {
+			const keyInput = prop.querySelector(".metadata-property-key-input") as HTMLInputElement;
+			const keyValue = keyInput?.value || keyInput?.textContent || "";
+			console.log("Property key:", keyValue);
+
+			if (keyValue.trim().toLowerCase() === "icon") {
+				// Check if we already added the emoji
+				if (prop.querySelector(".icon-decorator-property-emoji")) {
+					console.log("Emoji already exists");
+					return;
+				}
+
+				const valueEl = prop.querySelector(".metadata-property-value");
+				console.log("Value element:", valueEl);
+
+				if (valueEl) {
+					const emojiSpan = document.createElement("span");
+					emojiSpan.className = "icon-decorator-property-emoji";
+					emojiSpan.textContent = ` ${emoji}`;
+					emojiSpan.style.marginLeft = "4px";
+					valueEl.appendChild(emojiSpan);
+					console.log("Emoji added!");
+				}
+				return;
+			}
+		}
 	}
 
 	async loadSettings() {
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData() as Partial<MyPluginSettings>);
+		this.settings = Object.assign(
+			{},
+			DEFAULT_SETTINGS,
+			(await this.loadData()) as Partial<MyPluginSettings>
+		);
 	}
 
 	async saveSettings() {
 		await this.saveData(this.settings);
-	}
-}
-
-class SampleModal extends Modal {
-	constructor(app: App) {
-		super(app);
-	}
-
-	onOpen() {
-		let {contentEl} = this;
-		contentEl.setText('Woah!');
-	}
-
-	onClose() {
-		const {contentEl} = this;
-		contentEl.empty();
 	}
 }

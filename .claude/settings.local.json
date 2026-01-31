@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:vite.dev)",
+      "WebSearch",
+      "WebFetch(domain:github.com)",
+      "Bash(pnpm build:*)"
+    ]
+  }
+}
