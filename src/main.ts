@@ -1,5 +1,5 @@
-import { MarkdownView, Plugin, TFile } from "obsidian";
-import { DEFAULT_SETTINGS, MyPluginSettings, SampleSettingTab } from "./settings";
+import { MarkdownView, Plugin } from "obsidian";
+import { DEFAULT_SETTINGS, IconPickerSettings, IconPickerSettingTab } from "./settings";
 import { iconDecoratorPlugin } from "./iconDecorator";
 
 const ICON_MAP: Record<string, string> = {
@@ -7,8 +7,8 @@ const ICON_MAP: Record<string, string> = {
 	frown: "😞",
 };
 
-export default class MyPlugin extends Plugin {
-	settings: MyPluginSettings;
+export default class IconPickerPlugin extends Plugin {
+	settings!: IconPickerSettings;
 	private observer: MutationObserver | null = null;
 
 	async onload() {
@@ -43,7 +43,7 @@ export default class MyPlugin extends Plugin {
 		this.setupMutationObserver();
 
 		// This adds a settings tab so the user can configure various aspects of the plugin
-		this.addSettingTab(new SampleSettingTab(this.app, this));
+		this.addSettingTab(new IconPickerSettingTab(this.app, this));
 	}
 
 	onunload() {
@@ -71,71 +71,48 @@ export default class MyPlugin extends Plugin {
 	}
 
 	private decoratePropertiesPanel() {
-		console.log("decoratePropertiesPanel called");
-
 		const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
 		if (!activeView) {
-			console.log("No active MarkdownView");
 			return;
 		}
 
 		const file = activeView.file;
 		if (!file) {
-			console.log("No file in view");
 			return;
 		}
 
 		const cache = this.app.metadataCache.getFileCache(file);
-		console.log("Cache:", cache);
-		console.log("Frontmatter:", cache?.frontmatter);
-
-		const iconValue = cache?.frontmatter?.icon;
+		const iconValue: unknown = cache?.frontmatter?.icon;
 
 		if (!iconValue || typeof iconValue !== "string") {
-			console.log("No icon value found, iconValue:", iconValue);
 			return;
 		}
 
 		const emoji = ICON_MAP[iconValue.toLowerCase()];
 		if (!emoji) {
-			console.log("No emoji for icon:", iconValue);
 			return;
 		}
-
-		console.log("Looking for properties panel, emoji:", emoji);
 
 		// Find the properties panel in this view
 		const container = activeView.containerEl;
 		const properties = container.querySelectorAll(".metadata-property");
-		console.log("Found properties:", properties.length);
-
-		// Debug: log all elements with "metadata" in class name
-		const allMetadata = container.querySelectorAll("[class*='metadata']");
-		console.log("All metadata elements:", allMetadata.length);
-		allMetadata.forEach((el) => console.log("  -", el.className));
 
 		for (const prop of Array.from(properties)) {
 			const keyInput = prop.querySelector(".metadata-property-key-input") as HTMLInputElement;
 			const keyValue = keyInput?.value || keyInput?.textContent || "";
-			console.log("Property key:", keyValue);
 
 			if (keyValue.trim().toLowerCase() === "icon") {
 				// Check if we already added the emoji
 				if (prop.querySelector(".icon-decorator-property-emoji")) {
-					console.log("Emoji already exists");
 					return;
 				}
 
 				const valueEl = prop.querySelector(".metadata-property-value");
-				console.log("Value element:", valueEl);
-
-				if (valueEl) {
-					const emojiSpan = document.createElement("span");
-					emojiSpan.className = "icon-decorator-property-emoji";
-					emojiSpan.textContent = ` ${emoji}`;
-					emojiSpan.style.marginLeft = "4px";
-					valueEl.appendChild(emojiSpan);
-					console.log("Emoji added!");
+				if (valueEl instanceof HTMLElement) {
+					valueEl.createSpan({
+						cls: "icon-decorator-property-emoji",
+						text: ` ${emoji}`,
+					});
 				}
 				return;
 			}
@@ -146,7 +123,7 @@ export default class MyPlugin extends Plugin {
 		this.settings = Object.assign(
 			{},
 			DEFAULT_SETTINGS,
-			(await this.loadData()) as Partial<MyPluginSettings>
+			(await this.loadData()) as Partial<IconPickerSettings>
 		);
 	}
 

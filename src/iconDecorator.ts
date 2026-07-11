@@ -19,10 +19,10 @@ class EmojiWidget extends WidgetType {
 	}
 
 	toDOM(): HTMLElement {
-		const span = document.createElement("span");
-		span.textContent = ` ${this.emoji}`;
-		span.className = "icon-decorator-emoji";
-		return span;
+		return createSpan({
+			cls: "icon-decorator-emoji",
+			text: ` ${this.emoji}`,
+		});
 	}
 
 	eq(other: EmojiWidget): boolean {
@@ -34,8 +34,6 @@ function buildDecorations(view: EditorView): DecorationSet {
 	const content = view.state.doc.toString();
 	const fmInfo = getFrontMatterInfo(content);
 
-	console.log("Frontmatter Info:", fmInfo);
-
 	if (!fmInfo.exists) {
 		return Decoration.none;
 	}
@@ -46,8 +44,6 @@ function buildDecorations(view: EditorView): DecorationSet {
 	if (!iconMatch || !iconMatch[1]) {
 		return Decoration.none;
 	}
-
-	console.log("Icon Match:", iconMatch);
 
 	const iconValue = iconMatch[1].toLowerCase();
 	const emoji = ICON_MAP[iconValue];
@@ -64,8 +60,6 @@ function buildDecorations(view: EditorView): DecorationSet {
 		widget: new EmojiWidget(emoji),
 		side: 1,
 	});
-
-	console.log("Creating decoration at:", emoji, matchStart, matchEnd);
 
 	return Decoration.set([widget.range(matchEnd)]);
 }
