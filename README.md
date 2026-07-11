@@ -2,6 +2,8 @@
 
 An [Obsidian](https://obsidian.md) plugin for previewing and picking [Lucide](https://lucide.dev) icons stored in a note's `icon` frontmatter property — the property that the [Bases map view](https://obsidian.md/help/bases/views/map) reads for marker icons.
 
+![Icon preview next to the icon property](docs/property-preview.png)
+
 ## Features
 
 - **Icon preview** — notes with an `icon` property show the rendered Lucide icon next to the property value in the Properties panel (Live Preview and Reading mode), and inline after the value in Source mode. If the value isn't a valid icon name, a dimmed placeholder is shown instead.
@@ -10,6 +12,8 @@ An [Obsidian](https://obsidian.md) plugin for previewing and picking [Lucide](ht
   - **Set icon for current note** — opens a fuzzy-search modal over the full Lucide icon set, with a live preview of every icon. Picking one writes it to the note's frontmatter.
   - **Remove icon from current note** — deletes the property.
 - **Configurable property name** — defaults to `icon` (what the Bases map view expects), changeable in settings.
+
+![Icon picker modal with fuzzy search](docs/icon-picker-modal.png)
 
 Icons are stored as plain Lucide names (e.g. `map-pin`, `ice-cream`), which is the format the Bases map view expects. Obsidian bundles the Lucide icon set natively, so the plugin has no runtime dependencies and works fully offline.
 
