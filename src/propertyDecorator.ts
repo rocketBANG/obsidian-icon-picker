@@ -28,7 +28,6 @@ export class PropertyPanelDecorator {
 		plugin.registerEvent(plugin.app.workspace.on("file-open", () => this.schedule()));
 
 		this.observer = new MutationObserver(() => this.schedule());
-		this.observer.observe(document.body, { childList: true, subtree: true });
 
 		this.schedule();
 	}
@@ -36,7 +35,9 @@ export class PropertyPanelDecorator {
 	stop(): void {
 		this.observer?.disconnect();
 		this.observer = null;
-		document.querySelectorAll("." + PREVIEW_CLASS).forEach((el) => el.remove());
+		for (const view of this.markdownViews()) {
+			view.containerEl.querySelectorAll("." + PREVIEW_CLASS).forEach((el) => el.remove());
+		}
 	}
 
 	schedule(): void {
@@ -50,11 +51,25 @@ export class PropertyPanelDecorator {
 		});
 	}
 
-	private decorateAll(): void {
+	private markdownViews(): MarkdownView[] {
+		const views: MarkdownView[] = [];
 		for (const leaf of this.plugin.app.workspace.getLeavesOfType("markdown")) {
 			if (leaf.view instanceof MarkdownView) {
-				this.decorateView(leaf.view);
+				views.push(leaf.view);
 			}
+		}
+		return views;
+	}
+
+	private decorateAll(): void {
+		for (const view of this.markdownViews()) {
+			// Observe each view's own container rather than one global document:
+			// views in popout windows live in other documents, which a single
+			// document-level observer would never see. Re-observing an
+			// already-observed node just replaces the registration, so this is
+			// safe to repeat on every pass.
+			this.observer?.observe(view.containerEl, { childList: true, subtree: true });
+			this.decorateView(view);
 		}
 	}
 
