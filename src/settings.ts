@@ -1,13 +1,13 @@
-import {App, PluginSettingTab, Setting} from "obsidian";
+import { App, PluginSettingTab, Setting } from "obsidian";
 import IconPickerPlugin from "./main";
 
 export interface IconPickerSettings {
-	mySetting: string;
+	propertyName: string;
 }
 
 export const DEFAULT_SETTINGS: IconPickerSettings = {
-	mySetting: 'default'
-}
+	propertyName: "icon",
+};
 
 export class IconPickerSettingTab extends PluginSettingTab {
 	plugin: IconPickerPlugin;
@@ -18,19 +18,24 @@ export class IconPickerSettingTab extends PluginSettingTab {
 	}
 
 	display(): void {
-		const {containerEl} = this;
+		const { containerEl } = this;
 
 		containerEl.empty();
 
 		new Setting(containerEl)
-			.setName('Settings #1')
-			.setDesc('It\'s a secret')
-			.addText(text => text
-				.setPlaceholder('Enter your secret')
-				.setValue(this.plugin.settings.mySetting)
-				.onChange(async (value) => {
-					this.plugin.settings.mySetting = value;
-					await this.plugin.saveSettings();
-				}));
+			.setName("Property name")
+			.setDesc(
+				'Frontmatter property that stores the icon name. The map view in bases reads "icon".'
+			)
+			.addText((text) =>
+				text
+					.setPlaceholder("icon")
+					.setValue(this.plugin.settings.propertyName)
+					.onChange(async (value) => {
+						this.plugin.settings.propertyName = value.trim() || DEFAULT_SETTINGS.propertyName;
+						await this.plugin.saveSettings();
+						this.plugin.refreshDecorations();
+					})
+			);
 	}
 }

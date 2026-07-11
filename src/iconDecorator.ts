@@ -1,3 +1,4 @@
+import { Extension } from "@codemirror/state";
 import {
 	Decoration,
 	DecorationSet,
@@ -6,78 +7,94 @@ import {
 	ViewUpdate,
 	WidgetType,
 } from "@codemirror/view";
-import { getFrontMatterInfo } from "obsidian";
+import { editorInfoField, getFrontMatterInfo } from "obsidian";
+import type IconPickerPlugin from "./main";
+import { resolveIcon } from "./icons";
 
-const ICON_MAP: Record<string, string> = {
-	smile: "😊",
-	frown: "😞",
-};
-
-class EmojiWidget extends WidgetType {
-	constructor(private emoji: string) {
-		super();
-	}
-
-	toDOM(): HTMLElement {
-		return createSpan({
-			cls: "icon-decorator-emoji",
-			text: ` ${this.emoji}`,
-		});
-	}
-
-	eq(other: EmojiWidget): boolean {
-		return this.emoji === other.emoji;
-	}
+function escapeRegExp(value: string): string {
+	return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-function buildDecorations(view: EditorView): DecorationSet {
-	const content = view.state.doc.toString();
-	const fmInfo = getFrontMatterInfo(content);
+/**
+ * Source-mode editor extension: renders the Lucide icon inline after the
+ * frontmatter icon value. Clicking it opens the picker. (Live Preview shows
+ * frontmatter as the Properties panel, which PropertyPanelDecorator handles.)
+ */
+export function createIconDecorator(plugin: IconPickerPlugin): Extension {
+	class IconWidget extends WidgetType {
+		constructor(private icon: string) {
+			super();
+		}
 
-	if (!fmInfo.exists) {
-		return Decoration.none;
-	}
+		toDOM(view: EditorView): HTMLElement {
+			const span = createSpan({
+				cls: "icon-picker-inline-preview",
+				attr: { "aria-label": "Change icon", role: "button" },
+			});
+			const svg = resolveIcon(this.icon);
+			if (svg) {
+				span.appendChild(svg);
+			}
+			span.addEventListener("mousedown", (event) => event.preventDefault());
+			span.addEventListener("click", (event) => {
+				event.preventDefault();
+				const file = view.state.field(editorInfoField).file;
+				if (file) {
+					plugin.openIconPicker(file);
+				}
+			});
+			return span;
+		}
 
-	const frontmatter = content.slice(0, fmInfo.contentStart);
-	const iconMatch = frontmatter.match(/^icon:\s*["']?(\w+)["']?\s*$/m);
-
-	if (!iconMatch || !iconMatch[1]) {
-		return Decoration.none;
-	}
-
-	const iconValue = iconMatch[1].toLowerCase();
-	const emoji = ICON_MAP[iconValue];
-
-	if (!emoji) {
-		return Decoration.none;
-	}
-
-	// Find position of the icon value in the document
-	const matchStart = frontmatter.indexOf(iconMatch[0]);
-	const matchEnd = matchStart + iconMatch[0].trimEnd().length;
-
-	const widget = Decoration.widget({
-		widget: new EmojiWidget(emoji),
-		side: 1,
-	});
-
-	return Decoration.set([widget.range(matchEnd)]);
-}
-
-class IconDecoratorPlugin {
-	decorations: DecorationSet;
-
-	constructor(view: EditorView) {
-		this.decorations = buildDecorations(view);
-	}
-
-	update(update: ViewUpdate) {
-		if (update.docChanged || update.viewportChanged) {
-			this.decorations = buildDecorations(update.view);
+		eq(other: IconWidget): boolean {
+			return this.icon === other.icon;
 		}
 	}
-}
 
-export const iconDecoratorPlugin = ViewPlugin.fromClass(IconDecoratorPlugin, {
-	decorations: (v) => v.decorations,
-});
+	function buildDecorations(view: EditorView): DecorationSet {
+		const content = view.state.doc.toString();
+		const fmInfo = getFrontMatterInfo(content);
+		if (!fmInfo.exists) {
+			return Decoration.none;
+		}
+
+		const frontmatter = content.slice(0, fmInfo.contentStart);
+		const pattern = new RegExp(
+			`^${escapeRegExp(plugin.settings.propertyName)}:[ \\t]*["']?([\\w-]+)["']?[ \\t]*$`,
+			"m"
+		);
+		const match = pattern.exec(frontmatter);
+		if (!match?.[1] || match.index === undefined) {
+			return Decoration.none;
+		}
+
+		if (!resolveIcon(match[1])) {
+			return Decoration.none;
+		}
+
+		const widgetPos = match.index + match[0].trimEnd().length;
+		const widget = Decoration.widget({
+			widget: new IconWidget(match[1]),
+			side: 1,
+		});
+		return Decoration.set([widget.range(widgetPos)]);
+	}
+
+	class IconDecoratorView {
+		decorations: DecorationSet;
+
+		constructor(view: EditorView) {
+			this.decorations = buildDecorations(view);
+		}
+
+		update(update: ViewUpdate) {
+			if (update.docChanged || update.viewportChanged) {
+				this.decorations = buildDecorations(update.view);
+			}
+		}
+	}
+
+	return ViewPlugin.fromClass(IconDecoratorView, {
+		decorations: (v) => v.decorations,
+	});
+}

@@ -1,3 +1,56 @@
-.icon-decorator-property-emoji {
-	margin-left: 4px;
+/* Icon preview / change button in the Properties panel */
+.icon-picker-property-preview {
+	display: inline-flex;
+	align-items: center;
+	align-self: center;
+	flex-shrink: 0;
+	margin-right: var(--size-4-2);
+	color: var(--icon-color);
+	cursor: var(--cursor);
+}
+
+.icon-picker-property-preview:hover {
+	color: var(--icon-color-hover);
+}
+
+.icon-picker-property-preview.is-unknown {
+	color: var(--text-faint);
+}
+
+.icon-picker-property-preview svg {
+	width: var(--icon-size);
+	height: var(--icon-size);
+}
+
+/* Inline icon preview in Source mode */
+.icon-picker-inline-preview {
+	display: inline-flex;
+	align-items: center;
+	vertical-align: text-bottom;
+	margin-left: var(--size-4-2);
+	color: var(--icon-color);
+	cursor: var(--cursor);
+}
+
+.icon-picker-inline-preview:hover {
+	color: var(--icon-color-hover);
+}
+
+.icon-picker-inline-preview svg {
+	width: var(--icon-size);
+	height: var(--icon-size);
+}
+
+/* Picker modal suggestions */
+.icon-picker-suggestion {
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-2);
+}
+
+.icon-picker-suggestion-icon {
+	display: flex;
+	align-items: center;
+	flex-shrink: 0;
+	color: var(--text-muted);
 }
